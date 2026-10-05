@@ -167,6 +167,7 @@ resource "aws_lambda_function" "reporter" {
   source_code_hash = data.archive_file.lambda_zip.output_base64sha256
   timeout          = 30
   memory_size      = 128
+  reserved_concurrent_executions = 1
   layers           = [aws_lambda_layer_version.python_deps.arn]
 
   environment {
@@ -228,5 +229,32 @@ resource "aws_scheduler_schedule" "business_hours_schedule" {
   target {
     arn      = aws_lambda_function.reporter.arn
     role_arn = aws_iam_role.scheduler_role.arn
+  }
+}
+
+# 8. Zero-Spend Cost Budget Alert ($0.01 / ~0.01€ cap)
+resource "aws_budgets_budget" "zero_spend_budget" {
+  name         = "${var.project_name}-budget-cap"
+  budget_type  = "COST"
+  limit_amount = "0.01"
+  limit_unit   = "USD"
+  time_unit    = "MONTHLY"
+
+  # Alert immediately when actual spend exceeds $0.01
+  notification {
+    comparison_operator        = "GREATER_THAN"
+    threshold                  = 100
+    threshold_type             = "PERCENTAGE"
+    notification_type          = "ACTUAL"
+    subscriber_email_addresses = [var.notification_email]
+  }
+
+  # Alert immediately if forecasted spend exceeds $0.01
+  notification {
+    comparison_operator        = "GREATER_THAN"
+    threshold                  = 100
+    threshold_type             = "PERCENTAGE"
+    notification_type          = "FORECASTED"
+    subscriber_email_addresses = [var.notification_email]
   }
 }

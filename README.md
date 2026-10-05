@@ -17,11 +17,27 @@ EventBridge Scheduler
        └── On Diff ───────► AWS SNS Topic ──► Email Alert Subscriber
 ```
 
-* **AWS Lambda (`src/index.py`)**: Executes the Dualis scraper session, normalizes data deterministically, compares with the last checkpoint in DynamoDB, and alerts on changes.
-* **AWS DynamoDB**: Stores the latest grades report (`id = "latest_report"`) for stateful diffing across invocations.
+* **AWS Lambda (`src/index.py`)**: Executes the Dualis scraper session, normalizes data deterministically, compares with the last checkpoint in DynamoDB, and alerts on changes (capped at concurrency = 1 and 30s timeout).
+* **AWS DynamoDB**: Stores the latest grades report (`id = "latest_report"`) for stateful diffing across invocations (fixed at 1 RCU / 1 WCU Always Free).
 * **AWS SNS**: Delivers formatted unified diff alerts to your email.
 * **EventBridge Scheduler**: Triggers the Lambda during business hours (`cron(0 9,11,13,15,17 ? * MON-FRI *)` in `Europe/Berlin`).
+* **AWS Budgets ($0.01 Cap)**: Active monthly cost budget that immediately emails alerts if actual or forecasted spend exceeds $0.01.
 * **OpenTofu & GitHub Actions**: Full Infrastructure-as-Code pipeline authenticated via keyless AWS OIDC.
+
+---
+
+## Free Tier & Zero-Spend Cost Protection
+
+This architecture is strictly designed to remain **100% free forever** within AWS Always-Free allowances:
+
+| Component | Architecture Setting | AWS Free Tier Allowance | Monthly Cost |
+| :--- | :--- | :--- | :--- |
+| **DynamoDB** | 1 RCU / 1 WCU Provisioned | 25 RCU / 25 WCU Always Free | **0.00 €** |
+| **Lambda** | 128 MB, ~110 runs/mo, 1 max concurrency | 1,000,000 invocations + 3.2M sec/mo | **0.00 €** |
+| **SNS** | Diff notification emails | 1,000 emails/mo Always Free | **0.00 €** |
+| **EventBridge** | 5 invocations / weekday | 14,000,000 events/mo Always Free | **0.00 €** |
+| **CloudWatch** | 14-day log retention | 5 GB ingestion / storage Always Free | **0.00 €** |
+| **AWS Budgets** | $0.01 hard alert threshold | 2 Free Budgets per account | **0.00 €** |
 
 ---
 
