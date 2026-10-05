@@ -13,10 +13,10 @@ terraform {
   }
 
   backend "s3" {
-    # Replace with output from bootstrap/main.tf
-    bucket = "REPLACE_WITH_BOOTSTRAP_STATE_BUCKET_NAME"
+    # Bucket name can be supplied dynamically via -backend-config="bucket=$STATE_BUCKET_NAME"
+    # or via the STATE_BUCKET_NAME environment variable in CI/CD.
     key    = "pipeline/terraform.tfstate"
-    region = "us-east-1"
+    region = "eu-central-1"
   }
 }
 

@@ -14,12 +14,24 @@ provider "aws" {
 
 variable "aws_region" {
   type    = string
-  default = "us-east-1"
+  default = "eu-central-1"
 }
 
 variable "github_repo" {
   type        = string
   description = "Format: 'organization/repo-name' or 'username/repo-name'"
+}
+
+variable "role_name" {
+  type        = string
+  default     = "github-actions-infra-deployer"
+  description = "Name of the IAM role for GitHub Actions. Can be set via TF_VAR_role_name."
+}
+
+variable "state_bucket_name" {
+  type        = string
+  default     = null
+  description = "Explicit S3 bucket name for state. Can be set via TF_VAR_state_bucket_name."
 }
 
 # 1. GitHub OIDC Identity Provider
@@ -34,7 +46,7 @@ resource "aws_iam_openid_connect_provider" "github" {
 
 # 2. IAM Role for GitHub Actions
 resource "aws_iam_role" "github_actions_role" {
-  name = "github-actions-infra-deployer"
+  name = var.role_name
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -63,7 +75,8 @@ resource "aws_iam_role_policy_attachment" "deployer_admin" {
 
 # 3. S3 Bucket for OpenTofu Remote State
 resource "aws_s3_bucket" "tf_state" {
-  bucket_prefix = "tofu-state-${replace(var.github_repo, "/", "-")}-"
+  bucket        = var.state_bucket_name
+  bucket_prefix = var.state_bucket_name == null ? "tofu-state-${replace(var.github_repo, "/", "-")}-" : null
 }
 
 resource "aws_s3_bucket_versioning" "tf_state_versioning" {
