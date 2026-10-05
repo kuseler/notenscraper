@@ -1,0 +1,19 @@
+# OpenTofu / Terraform
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+crash.log
+
+# Build artifacts & virtual environments
+build_layer/
+*.zip
+__pycache__/
+*.py[cod]
+.venv/
+env/
+
+# Environment files
+.env
