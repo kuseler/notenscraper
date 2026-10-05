@@ -46,8 +46,8 @@ jobs:
       - name: OpenTofu Plan
         run: tofu -chdir=infra plan -no-color
         env:
-          TF_VAR_notification_email: ${{ secrets.NOTIFICATION_EMAIL }}
-          TF_VAR_scraper_username: ${{ secrets.SCRAPER_USERNAME }}
+          TF_VAR_notification_email: ${{ secrets.NOTIFICATION_EMAIL || vars.NOTIFICATION_EMAIL }}
+          TF_VAR_scraper_username: ${{ secrets.SCRAPER_USERNAME || vars.SCRAPER_USERNAME }}
           TF_VAR_scraper_password: ${{ secrets.SCRAPER_PASSWORD }}
           TF_VAR_role_arn: ${{ secrets.AWS_ROLE_ARN || vars.AWS_ROLE_ARN || secrets.ROLE_ARN || vars.ROLE_ARN }}
           TF_VAR_state_bucket_name: ${{ secrets.STATE_BUCKET_NAME || vars.STATE_BUCKET_NAME || secrets.BUCKET_NAME || vars.BUCKET_NAME }}
@@ -56,8 +56,8 @@ jobs:
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: tofu -chdir=infra apply -auto-approve
         env:
-          TF_VAR_notification_email: ${{ secrets.NOTIFICATION_EMAIL }}
-          TF_VAR_scraper_username: ${{ secrets.SCRAPER_USERNAME }}
+          TF_VAR_notification_email: ${{ secrets.NOTIFICATION_EMAIL || vars.NOTIFICATION_EMAIL }}
+          TF_VAR_scraper_username: ${{ secrets.SCRAPER_USERNAME || vars.SCRAPER_USERNAME }}
           TF_VAR_scraper_password: ${{ secrets.SCRAPER_PASSWORD }}
           TF_VAR_role_arn: ${{ secrets.AWS_ROLE_ARN || vars.AWS_ROLE_ARN || secrets.ROLE_ARN || vars.ROLE_ARN }}
           TF_VAR_state_bucket_name: ${{ secrets.STATE_BUCKET_NAME || vars.STATE_BUCKET_NAME || secrets.BUCKET_NAME || vars.BUCKET_NAME }}
