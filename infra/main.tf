@@ -146,7 +146,6 @@ resource "aws_lambda_function" "reporter" {
   source_code_hash = data.archive_file.lambda_zip.output_base64sha256
   timeout          = 30
   memory_size      = 128
-  reserved_concurrent_executions = 1
   layers           = [aws_lambda_layer_version.python_deps.arn]
 
   environment {
