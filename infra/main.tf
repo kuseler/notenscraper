@@ -73,32 +73,11 @@ resource "aws_cloudwatch_metric_alarm" "lambda_errors" {
   }
 }
 
-# 5. Dependency Layer Build
-resource "terraform_data" "build_layer" {
-  triggers_replace = [
-    filesha256("${path.module}/../src/requirements.txt")
-  ]
-
-  provisioner "local-exec" {
-    command = <<-EOT
-      python3 -m pip install \
-        --platform manylinux2014_x86_64 \
-        --target "${path.module}/build_layer/python" \
-        --implementation cp \
-        --python-version 3.12 \
-        --only-binary=:all: \
-        --upgrade \
-        -r "${path.module}/../src/requirements.txt"
-    EOT
-  }
-}
-
+# 5. Dependency Layer Archive
 data "archive_file" "layer_zip" {
   type        = "zip"
   source_dir  = "${path.module}/build_layer"
   output_path = "${path.module}/layer.zip"
-
-  depends_on = [terraform_data.build_layer]
 }
 
 resource "aws_lambda_layer_version" "python_deps" {
