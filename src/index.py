@@ -27,6 +27,8 @@ HEADERS = {
 
 # Network timeouts: (connect timeout, read timeout)
 REQUEST_TIMEOUT = (5, 15)
+_MISSING = object()
+_IMPORTANT_CHANGE_PATHS = (".grade:", ".status:", ".credits:", ".partial_results")
 
 
 def parse_result_details(html: str) -> list:
@@ -238,6 +240,76 @@ def scrape_grades() -> dict:
         }
 
 
+def _is_empty_equivalent(value):
+    if value is None:
+        return True
+    if isinstance(value, str):
+        return value.strip() == ""
+    if isinstance(value, (list, dict)):
+        return len(value) == 0
+    return False
+
+
+def _summarize_json_changes(previous, current, path=""):
+    if isinstance(previous, dict) and isinstance(current, dict):
+        changes = []
+        for key in sorted(set(previous.keys()) | set(current.keys())):
+            prev_val = previous.get(key, _MISSING)
+            curr_val = current.get(key, _MISSING)
+            child_path = f"{path}.{key}" if path else key
+            changes.extend(_summarize_json_changes(prev_val, curr_val, child_path))
+        return changes
+
+    if isinstance(previous, list) and isinstance(current, list):
+        changes = []
+        max_len = max(len(previous), len(current))
+        for idx in range(max_len):
+            prev_val = previous[idx] if idx < len(previous) else _MISSING
+            curr_val = current[idx] if idx < len(current) else _MISSING
+            child_path = f"{path}[{idx}]"
+            changes.extend(_summarize_json_changes(prev_val, curr_val, child_path))
+        return changes
+
+    prev_norm = previous.strip() if isinstance(previous, str) else previous
+    curr_norm = current.strip() if isinstance(current, str) else current
+
+    if prev_norm == curr_norm:
+        return []
+
+    if (previous is _MISSING and _is_empty_equivalent(current)) or (
+        current is _MISSING and _is_empty_equivalent(previous)
+    ):
+        return []
+
+    prev_display = "∅" if previous is _MISSING else json.dumps(previous, ensure_ascii=False, sort_keys=True)
+    curr_display = "∅" if current is _MISSING else json.dumps(current, ensure_ascii=False, sort_keys=True)
+    return [f"- {path}: {prev_display} → {curr_display}"]
+
+
+def build_readable_change_summary(previous_json: str, current_json: str, max_lines: int = 40) -> str:
+    try:
+        previous_data = json.loads(previous_json)
+        current_data = json.loads(current_json)
+    except json.JSONDecodeError:
+        return ""
+
+    summary_lines = _summarize_json_changes(previous_data, current_data)
+    if not summary_lines:
+        return ""
+
+    if len(summary_lines) > max_lines:
+        remaining = len(summary_lines) - max_lines
+        important_lines = [
+            line for line in summary_lines
+            if any(path_marker in line for path_marker in _IMPORTANT_CHANGE_PATHS)
+        ]
+        other_lines = [line for line in summary_lines if line not in important_lines]
+        prioritized = important_lines + other_lines
+        summary_lines = prioritized[:max_lines] + [f"- … {remaining} weitere Änderung(en)"]
+
+    return "Lesbare Zusammenfassung der JSON-Änderungen:\n" + "\n".join(summary_lines)
+
+
 def lambda_handler(event=None, context=None) -> str:
     table_name = os.environ.get('TABLE_NAME')
     if not table_name:
@@ -286,13 +358,22 @@ def lambda_handler(event=None, context=None) -> str:
         return "unchanged"
 
     diff_text = ''.join(diff_lines)
+    readable_summary = build_readable_change_summary(previous_json, current_json)
+    message = f"Eine Änderung in den Dualis-Noten wurde festgestellt:\n\n{diff_text}"
+    if readable_summary:
+        message = (
+            "Eine Änderung in den Dualis-Noten wurde festgestellt:\n\n"
+            f"{readable_summary}\n\n"
+            "Rohdiff:\n"
+            f"{diff_text}"
+        )
 
     # Publish diff to SNS
     if topic_arn:
         sns.publish(
             TopicArn=topic_arn,
             Subject='Dualis Notenänderung erkannt!',
-            Message=f"Eine Änderung in den Dualis-Noten wurde festgestellt:\n\n{diff_text}"
+            Message=message
         )
 
     # Save updated report to DynamoDB
