@@ -28,6 +28,7 @@ HEADERS = {
 # Network timeouts: (connect timeout, read timeout)
 REQUEST_TIMEOUT = (5, 15)
 _MISSING = object()
+_IMPORTANT_CHANGE_PATHS = (".grade:", ".status:", ".credits:", ".partial_results")
 
 
 def parse_result_details(html: str) -> list:
@@ -298,7 +299,13 @@ def build_readable_change_summary(previous_json: str, current_json: str, max_lin
 
     if len(summary_lines) > max_lines:
         remaining = len(summary_lines) - max_lines
-        summary_lines = summary_lines[:max_lines] + [f"- … {remaining} weitere Änderung(en)"]
+        important_lines = [
+            line for line in summary_lines
+            if any(path_marker in line for path_marker in _IMPORTANT_CHANGE_PATHS)
+        ]
+        other_lines = [line for line in summary_lines if line not in important_lines]
+        prioritized = important_lines + other_lines
+        summary_lines = prioritized[:max_lines] + [f"- … {remaining} weitere Änderung(en)"]
 
     return "Lesbare Zusammenfassung der JSON-Änderungen:\n" + "\n".join(summary_lines)
 
